@@ -12,15 +12,8 @@ class LaComarcaScene extends Phaser.Scene {
 
   // ─── PRELOAD ────────────────────────────────────────────────────────────────
   preload() {
-    // Imagen embebida como base64 — funciona con file:// y GitHub Pages
-    if (!this.textures.exists('map_taberna')) {
-      if (typeof MAP_TABERNA_B64 !== 'undefined') {
-        this.load.image('map_taberna', MAP_TABERNA_B64);
-        console.log('🗺️ Cargando mapa base64...');
-      } else {
-        console.warn('⚠️ MAP_TABERNA_B64 no definida — se usará fondo de color');
-      }
-    }
+    // MAP_TABERNA_B64 se carga en _createScene() via Image API nativa
+    // (Phaser 3.60 no soporta data URIs en su loader — causa hang)
   }
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
@@ -86,6 +79,17 @@ class LaComarcaScene extends Phaser.Scene {
     ];
 
     // ── Fondo: imagen del escenario (con fallback de color) ──────────────────
+    // Cargar textura desde data URI usando Image API nativa (no el loader de Phaser)
+    if (!this.textures.exists('map_taberna') && typeof MAP_TABERNA_B64 !== 'undefined') {
+      try {
+        const img = new window.Image();
+        img.src = MAP_TABERNA_B64;
+        if (img.complete && img.naturalWidth > 0) {
+          this.textures.addImage('map_taberna', img);
+          console.log('✅ Mapa cargado directamente');
+        }
+      } catch(e) { console.warn('⚠️ Error cargando mapa:', e.message); }
+    }
     if (this.textures.exists('map_taberna')) {
       this.add.image(this.worldW / 2, this.worldH / 2, 'map_taberna')
         .setDisplaySize(this.worldW, this.worldH)

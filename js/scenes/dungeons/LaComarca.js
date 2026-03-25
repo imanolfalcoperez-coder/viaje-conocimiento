@@ -12,14 +12,33 @@ class LaComarcaScene extends Phaser.Scene {
 
   // ─── PRELOAD ────────────────────────────────────────────────────────────────
   preload() {
-    // Imagen embebida como base64 — funciona con file:// sin restricciones
+    // Imagen embebida como base64 — funciona con file:// y GitHub Pages
     if (!this.textures.exists('map_taberna')) {
-      this.load.image('map_taberna', MAP_TABERNA_B64);
+      if (typeof MAP_TABERNA_B64 !== 'undefined') {
+        this.load.image('map_taberna', MAP_TABERNA_B64);
+        console.log('🗺️ Cargando mapa base64...');
+      } else {
+        console.warn('⚠️ MAP_TABERNA_B64 no definida — se usará fondo de color');
+      }
     }
   }
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
   create() {
+    console.log('🌿 LaComarca create() — jugador:', window.Game.player ? window.Game.player.name : 'NULL');
+    try {
+      this._createScene();
+    } catch (err) {
+      console.error('❌ Error en LaComarca.create():', err);
+      // Mostrar mensaje de error sobre el canvas para diagnóstico
+      this.add.text(400, 300,
+        '⚠️ Error al cargar La Comarca\nRevisa la consola (F12) para detalles.',
+        { fontSize: '14px', fill: '#ff4444', align: 'center', wordWrap: { width: 700 } }
+      ).setOrigin(0.5);
+    }
+  }
+
+  _createScene() {
     // Asegurar que WorldMap no esté renderizando en segundo plano
     if (this.scene.isActive('WorldMap')) this.scene.stop('WorldMap');
 
@@ -66,10 +85,25 @@ class LaComarcaScene extends Phaser.Scene {
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 24
     ];
 
-    // ── Fondo: imagen del escenario ───────────────────────────────────────────
-    this.add.image(this.worldW / 2, this.worldH / 2, 'map_taberna')
-      .setDisplaySize(this.worldW, this.worldH)
-      .setDepth(0);
+    // ── Fondo: imagen del escenario (con fallback de color) ──────────────────
+    if (this.textures.exists('map_taberna')) {
+      this.add.image(this.worldW / 2, this.worldH / 2, 'map_taberna')
+        .setDisplaySize(this.worldW, this.worldH)
+        .setDepth(0);
+      console.log('✅ Mapa cargado correctamente');
+    } else {
+      // Fondo verde degradado como fallback
+      const bg = this.add.graphics().setDepth(0);
+      bg.fillStyle(0x2d5a27);
+      bg.fillRect(0, 0, this.worldW, this.worldH);
+      bg.fillStyle(0x3a7a32, 0.5);
+      for (let x = 0; x < this.worldW; x += 64) {
+        for (let y = 0; y < this.worldH; y += 64) {
+          if ((x + y) % 128 === 0) bg.fillRect(x, y, 32, 32);
+        }
+      }
+      console.warn('⚠️ Usando fondo de color (imagen no disponible)');
+    }
 
     // ── Cámara ────────────────────────────────────────────────────────────────
     this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);

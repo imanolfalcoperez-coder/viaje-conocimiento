@@ -2,8 +2,8 @@
  * main.js
  * Configuración principal de Phaser y objeto global del juego.
  *
- * Canvas (viewport): 800×600
- * World (La Comarca): 800×800  →  la cámara hace scroll vertical
+ * Canvas (viewport): 800x600
+ * World (La Comarca): 800x800  - la camara hace scroll vertical
  */
 
 window.Game = {
@@ -14,13 +14,17 @@ window.Game = {
 
   startPhaser() {
     if (this.phaserGame) {
-      // Reanudar en la mazmorra donde el jugador lo dejó
       const scene = this._getStartScene();
-      // Reiniciar escena activa
-      this.phaserGame.scene.getScenes(true).forEach(s => s.scene.stop());
-      this.phaserGame.scene.start(scene);
+      const active = this.phaserGame.scene.getScenes(true).slice();
+      active.forEach(s => s.scene.stop());
+      setTimeout(() => { this.phaserGame.scene.start(scene); }, 50);
       return;
     }
+
+    const startScene = this._getStartScene();
+    const orderedScenes = startScene === 'LaComarca'
+      ? [LaComarcaScene, WorldMapScene]
+      : [WorldMapScene, LaComarcaScene];
 
     const config = {
       type: Phaser.CANVAS,
@@ -28,21 +32,16 @@ window.Game = {
       width: 800,
       height: 600,
       backgroundColor: '#1a0a00',
-      scene: [WorldMapScene, LaComarcaScene],
+      scene: orderedScenes,
       input: { keyboard: true },
     };
 
     this.phaserGame = new Phaser.Game(config);
-
-    this.phaserGame.events.once('ready', () => {
-      const scene = this._getStartScene();
-      this.phaserGame.scene.start(scene);
-    });
+    console.log('Phaser iniciado - escena:', startScene);
   },
 
   _getStartScene() {
     if (!this.player) return 'WorldMap';
-    // Si ya completó la comarca, ir al mapa mundial
     if (this.player.completedDungeons && this.player.completedDungeons.includes('comarca')) {
       return 'WorldMap';
     }
@@ -50,7 +49,6 @@ window.Game = {
   }
 };
 
-// ── Tecla ESPACIO global para avanzar diálogos ─────────────────────────────
 document.addEventListener('keydown', (e) => {
   if ((e.code === 'Space' || e.code === 'Enter') && DialogSystem.isOpen) {
     e.preventDefault();
@@ -58,4 +56,4 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-console.log('🧙 El Viaje del Conocimiento — v1.0');
+console.log('El Viaje del Conocimiento - v1.0');

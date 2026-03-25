@@ -91,23 +91,37 @@
     }
     .cc-option:hover { border-color: #ffd700; color: #ffd700; }
     .cc-option.selected { background: #3d2200; border-color: #ffd700; color: #ffd700; }
-    .cc-preview {
-      width: 120px; height: 120px;
-      background: #0d0600;
-      border: 2px solid #8b6914;
-      border-radius: 8px;
+    /* Grid de selección de personaje */
+    .char-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      width: 90%;
+      margin: 10px 0 18px;
+    }
+    .char-card {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      font-size: 50px;
-      margin: 10px auto;
+      background: #1a0e00;
+      border: 2px solid #4a3200;
+      border-radius: 8px;
+      padding: 8px 10px 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 86px;
     }
-    .cc-preview .preview-name {
-      font-size: 10px;
+    .char-card:hover { border-color: #ffd700; background: #2d1b00; }
+    .char-card.selected { border-color: #ffd700; background: #3d2200; box-shadow: 0 0 8px #ffd70066; }
+    .char-card canvas { image-rendering: pixelated; }
+    .char-card .char-name {
+      font-size: 11px;
       color: #c4a35a;
-      margin-top: 4px;
+      margin-top: 5px;
+      text-align: center;
     }
+    .char-card.selected .char-name { color: #ffd700; }
     #btn-start-journey {
       margin: 15px 0 20px;
       padding: 12px 40px;
@@ -386,65 +400,51 @@
   <!-- CREACIÓN DE PERSONAJE -->
   <div id="character-creation">
     <h1>🌿 Crea tu Hobbit</h1>
-    <p class="subtitle">Antes de partir de La Comarca, necesitas dar forma a tu personaje...</p>
-    <div class="cc-preview">
-      <span id="preview-emoji">🧑</span>
-      <span class="preview-name" id="preview-name">Tu Hobbit</span>
-    </div>
+    <p class="subtitle">Ponle nombre y elige tu aspecto antes de partir de La Comarca...</p>
+
     <div class="cc-section">
       <label>📛 Nombre de tu Hobbit</label>
-      <input type="text" id="char-name" placeholder="Ej: Frodo, Bilbo, Pippin..." maxlength="20" oninput="GameUI.updatePreview()">
+      <input type="text" id="char-name" placeholder="Ej: Frodo, Bilbo, Pippin..." maxlength="20">
     </div>
+
     <div class="cc-section">
-      <label>🧍 Sexo</label>
-      <div class="cc-options">
-        <div class="cc-option selected" data-group="sex" data-value="male" onclick="GameUI.selectOption(this)">👦 Masculino</div>
-        <div class="cc-option" data-group="sex" data-value="female" onclick="GameUI.selectOption(this)">👧 Femenino</div>
+      <label>🧝 Elige tu personaje</label>
+      <div class="char-grid" id="char-grid">
+        <div class="char-card selected" data-char-id="c01" onclick="GameUI.selectChar('c01')">
+          <canvas id="char-canvas-c01" width="64" height="96"></canvas>
+          <span class="char-name">Bilbo</span>
+        </div>
+        <div class="char-card" data-char-id="c02" onclick="GameUI.selectChar('c02')">
+          <canvas id="char-canvas-c02" width="64" height="96"></canvas>
+          <span class="char-name">Frodo</span>
+        </div>
+        <div class="char-card" data-char-id="c03" onclick="GameUI.selectChar('c03')">
+          <canvas id="char-canvas-c03" width="64" height="96"></canvas>
+          <span class="char-name">Samwise</span>
+        </div>
+        <div class="char-card" data-char-id="c04" onclick="GameUI.selectChar('c04')">
+          <canvas id="char-canvas-c04" width="64" height="96"></canvas>
+          <span class="char-name">Pippin</span>
+        </div>
+        <div class="char-card" data-char-id="c05" onclick="GameUI.selectChar('c05')">
+          <canvas id="char-canvas-c05" width="64" height="96"></canvas>
+          <span class="char-name">Merry</span>
+        </div>
+        <div class="char-card" data-char-id="c06" onclick="GameUI.selectChar('c06')">
+          <canvas id="char-canvas-c06" width="64" height="96"></canvas>
+          <span class="char-name">Rosie</span>
+        </div>
+        <div class="char-card" data-char-id="c07" onclick="GameUI.selectChar('c07')">
+          <canvas id="char-canvas-c07" width="64" height="96"></canvas>
+          <span class="char-name">Lobelia</span>
+        </div>
+        <div class="char-card" data-char-id="c08" onclick="GameUI.selectChar('c08')">
+          <canvas id="char-canvas-c08" width="64" height="96"></canvas>
+          <span class="char-name">Gandalf</span>
+        </div>
       </div>
     </div>
-    <div class="cc-section">
-      <label>💇 Peinado</label>
-      <div class="cc-options">
-        <div class="cc-option selected" data-group="hair" data-value="curly" onclick="GameUI.selectOption(this)">〰️ Rizado</div>
-        <div class="cc-option" data-group="hair" data-value="straight" onclick="GameUI.selectOption(this)">➖ Liso</div>
-        <div class="cc-option" data-group="hair" data-value="long" onclick="GameUI.selectOption(this)">🌊 Largo</div>
-        <div class="cc-option" data-group="hair" data-value="short" onclick="GameUI.selectOption(this)">✂️ Corto</div>
-      </div>
-    </div>
-    <div class="cc-section">
-      <label>👀 Ojos</label>
-      <div class="cc-options">
-        <div class="cc-option selected" data-group="eyes" data-value="brown" onclick="GameUI.selectOption(this)">🟤 Marrones</div>
-        <div class="cc-option" data-group="eyes" data-value="blue" onclick="GameUI.selectOption(this)">🔵 Azules</div>
-        <div class="cc-option" data-group="eyes" data-value="green" onclick="GameUI.selectOption(this)">🟢 Verdes</div>
-        <div class="cc-option" data-group="eyes" data-value="gray" onclick="GameUI.selectOption(this)">⚪ Grises</div>
-      </div>
-    </div>
-    <div class="cc-section">
-      <label>👕 Ropa superior</label>
-      <div class="cc-options">
-        <div class="cc-option selected" data-group="top" data-value="vest" onclick="GameUI.selectOption(this)">🟤 Chaleco</div>
-        <div class="cc-option" data-group="top" data-value="shirt" onclick="GameUI.selectOption(this)">🔴 Camisa</div>
-        <div class="cc-option" data-group="top" data-value="tunic" onclick="GameUI.selectOption(this)">🟢 Túnica</div>
-        <div class="cc-option" data-group="top" data-value="cloak" onclick="GameUI.selectOption(this)">🟣 Capa</div>
-      </div>
-    </div>
-    <div class="cc-section">
-      <label>👖 Ropa inferior</label>
-      <div class="cc-options">
-        <div class="cc-option selected" data-group="bottom" data-value="trousers" onclick="GameUI.selectOption(this)">🟤 Pantalones</div>
-        <div class="cc-option" data-group="bottom" data-value="skirt" onclick="GameUI.selectOption(this)">🟡 Falda</div>
-        <div class="cc-option" data-group="bottom" data-value="shorts" onclick="GameUI.selectOption(this)">🟢 Shorts</div>
-      </div>
-    </div>
-    <div class="cc-section">
-      <label>🦶 Calzado (recuerda: ¡los Hobbits van descalzos!)</label>
-      <div class="cc-options">
-        <div class="cc-option selected" data-group="shoes" data-value="barefoot" onclick="GameUI.selectOption(this)">🦶 Descalzo</div>
-        <div class="cc-option" data-group="shoes" data-value="sandals" onclick="GameUI.selectOption(this)">👡 Sandalias</div>
-        <div class="cc-option" data-group="shoes" data-value="boots" onclick="GameUI.selectOption(this)">👢 Botas</div>
-      </div>
-    </div>
+
     <button id="btn-start-journey" onclick="GameUI.startJourney()">🌄 ¡Comenzar el Viaje!</button>
   </div>
 

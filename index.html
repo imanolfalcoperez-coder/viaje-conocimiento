@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Viaje del Conocimiento — Tierra Media</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a0a00;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Georgia', serif;
+    }
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      position: absolute;
+      top: 0; left: 0;
+    }
+    /* Pantalla de creación de personaje (HTML overlay) */
+    #character-creation {
+      display: none;
+      position: absolute;
+      top: 0; left: 0;
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse at center, #2d1b00 0%, #0d0600 100%);
+      border: 3px solid #8b6914;
+      color: #f5deb3;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    #character-creation.active { display: flex; flex-direction: column; align-items: center; }
+    #character-creation h1 {
+      font-size: 28px;
+      color: #ffd700;
+      text-shadow: 0 0 20px #ff8c00;
+      margin: 20px 0 5px;
+      text-align: center;
+    }
+    #character-creation .subtitle {
+      font-size: 13px;
+      color: #c4a35a;
+      margin-bottom: 20px;
+      font-style: italic;
+    }
+    .cc-section {
+      width: 90%;
+      margin: 8px 0;
+    }
+    .cc-section label {
+      display: block;
+      font-size: 13px;
+      color: #ffd700;
+      margin-bottom: 5px;
+    }
+    .cc-section input[type="text"] {
+      width: 100%;
+      padding: 8px 12px;
+      background: #1a0e00;
+      border: 2px solid #8b6914;
+      color: #f5deb3;
+      font-family: 'Georgia', serif;
+      font-size: 14px;
+      border-radius: 4px;
+    }
+    .cc-options {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .cc-option {
+      padding: 8px 14px;
+      background: #1a0e00;
+      border: 2px solid #4a3200;
+      color: #c4a35a;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .cc-option:hover { border-color: #ffd700; color: #ffd700; }
+    .cc-option.selected { background: #3d2200; border-color: #ffd700; color: #ffd700; }
+    .cc-preview {
+      width: 120px; height: 120px;
+      background: #0d0600;
+      border: 2px solid #8b6914;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 50px;
+      margin: 10px auto;
+    }
+    .cc-preview .preview-name {
+      font-size: 10px;
+      color: #c4a35a;
+      margin-top: 4px;
+    }
+    #btn-start-journey {
+      margin: 15px 0 20px;
+      padding: 12px 40px;
+      background: linear-gradient(180deg, #8b6914, #5a4200);
+      border: 2px solid #ffd700;
+      color: #ffd700;
+      font-family: 'Georgia', serif;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    #btn-start-journey:hover {
+      background: linear-gradient(180deg, #ffd700, #8b6914);
+      color: #1a0a00;
+    }
+    /* Diálogo de Gandalf */
+    #dialog-overlay {
+      display: none;
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 800px;
+      background: linear-gradient(180deg, rgba(13,6,0,0.95), rgba(26,10,0,0.98));
+      border-top: 3px solid #8b6914;
+      padding: 15px 20px 20px;
+      z-index: 50;
+      color: #f5deb3;
+    }
+    #dialog-overlay.active { display: block; }
+    #dialog-speaker {
+      font-size: 13px;
+      color: #ffd700;
+      margin-bottom: 6px;
+      font-style: italic;
+    }
+    #dialog-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #f5deb3;
+      min-height: 60px;
+    }
+    #dialog-continue {
+      text-align: right;
+      font-size: 11px;
+      color: #8b6914;
+      margin-top: 8px;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* Panel de puzzle */
+    #puzzle-overlay {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 520px;
+      background: radial-gradient(ellipse, #1a0e00, #0d0600);
+      border: 3px solid #8b6914;
+      border-radius: 8px;
+      padding: 25px;
+      z-index: 60;
+      color: #f5deb3;
+    }
+    #puzzle-overlay.active { display: block; }
+    #puzzle-title {
+      font-size: 16px;
+      color: #ffd700;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    #puzzle-question {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 18px;
+      color: #f0d080;
+      text-align: center;
+      font-style: italic;
+      padding: 10px;
+      background: rgba(255,215,0,0.05);
+      border-radius: 4px;
+      border: 1px solid #4a3200;
+    }
+    .puzzle-option {
+      display: block;
+      width: 100%;
+      padding: 10px 15px;
+      margin: 6px 0;
+      background: #1a0e00;
+      border: 2px solid #4a3200;
+      color: #c4a35a;
+      text-align: left;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      font-size: 13px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .puzzle-option:hover { border-color: #ffd700; color: #ffd700; background: #2d1b00; }
+    .puzzle-option.correct { border-color: #4caf50; color: #4caf50; background: #0a1f0a; }
+    .puzzle-option.wrong { border-color: #f44336; color: #f44336; background: #1f0a0a; }
+    #puzzle-feedback {
+      margin-top: 12px;
+      font-size: 13px;
+      text-align: center;
+      min-height: 20px;
+    }
+    #puzzle-close {
+      display: none;
+      margin: 10px auto 0;
+      padding: 8px 25px;
+      background: #3d2200;
+      border: 2px solid #8b6914;
+      color: #ffd700;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      border-radius: 4px;
+    }
+    /* Pantalla de carga del código */
+    #load-screen {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 400px;
+      background: #1a0a00;
+      border: 3px solid #8b6914;
+      padding: 30px;
+      z-index: 200;
+      text-align: center;
+      color: #f5deb3;
+      border-radius: 8px;
+    }
+    #load-screen h2 { color: #ffd700; margin-bottom: 15px; }
+    #load-screen input {
+      width: 100%;
+      padding: 10px;
+      background: #0d0600;
+      border: 2px solid #8b6914;
+      color: #ffd700;
+      font-size: 18px;
+      text-align: center;
+      font-family: monospace;
+      letter-spacing: 3px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    #load-screen button {
+      padding: 10px 30px;
+      background: #3d2200;
+      border: 2px solid #8b6914;
+      color: #ffd700;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      font-size: 14px;
+      border-radius: 4px;
+      margin: 5px;
+    }
+    /* HUD */
+    #hud {
+      display: none;
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(13,6,0,0.85);
+      border: 2px solid #8b6914;
+      padding: 8px 14px;
+      color: #f5deb3;
+      font-size: 12px;
+      border-radius: 6px;
+      z-index: 40;
+    }
+    #hud .hud-name { color: #ffd700; font-size: 14px; font-weight: bold; }
+    #hud .hud-location { color: #c4a35a; font-size: 11px; }
+    /* Progress bar SA */
+    #progress-bar-container {
+      display: none;
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(13,6,0,0.85);
+      border: 2px solid #8b6914;
+      padding: 8px 14px;
+      z-index: 40;
+      border-radius: 6px;
+    }
+    .progress-label { color: #ffd700; font-size: 11px; margin-bottom: 4px; }
+    .progress-bar {
+      width: 160px; height: 10px;
+      background: #1a0e00;
+      border: 1px solid #4a3200;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #8b6914, #ffd700);
+      border-radius: 5px;
+      transition: width 0.5s;
+    }
+    /* Notification */
+    #notification {
+      display: none;
+      position: absolute;
+      top: 80px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(13,6,0,0.95);
+      border: 2px solid #ffd700;
+      color: #ffd700;
+      padding: 10px 25px;
+      font-size: 13px;
+      border-radius: 6px;
+      z-index: 70;
+      text-align: center;
+    }
+    /* Menú inicio */
+    #main-menu {
+      display: none;
+      position: absolute;
+      top:0; left:0;
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse at center, #2d1500 0%, #0d0600 80%);
+      z-index: 150;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #main-menu.active { display: flex; }
+    #main-menu h1 {
+      font-size: 36px;
+      color: #ffd700;
+      text-shadow: 0 0 30px #ff8c00, 0 0 60px #ff4500;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    #main-menu .tagline {
+      font-size: 14px;
+      color: #c4a35a;
+      font-style: italic;
+      margin-bottom: 50px;
+    }
+    .menu-btn {
+      width: 280px;
+      padding: 14px;
+      margin: 8px 0;
+      background: linear-gradient(180deg, #3d2200, #1a0a00);
+      border: 2px solid #8b6914;
+      color: #f5deb3;
+      font-family: 'Georgia', serif;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    .menu-btn:hover { border-color: #ffd700; color: #ffd700; background: linear-gradient(180deg, #5a3300, #2d1500); }
+    .menu-gandalf {
+      font-size: 60px;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 0 15px #ff8c00);
+    }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- MENÚ PRINCIPAL -->
+  <div id="main-menu" class="active">
+    <div class="menu-gandalf">🧙</div>
+    <h1>El Viaje del Conocimiento</h1>
+    <p class="tagline">"Un mago nunca llega tarde... ni sin saber gramática." — Gandalf</p>
+    <button class="menu-btn" onclick="GameUI.newGame()">⚔️ Nueva Aventura</button>
+    <button class="menu-btn" onclick="GameUI.showLoadScreen()">📜 Continuar Viaje</button>
+  </div>
+
+  <!-- CREACIÓN DE PERSONAJE -->
+  <div id="character-creation">
+    <h1>🌿 Crea tu Hobbit</h1>
+    <p class="subtitle">Antes de partir de La Comarca, necesitas dar forma a tu personaje...</p>
+    <div class="cc-preview">
+      <span id="preview-emoji">🧑</span>
+      <span class="preview-name" id="preview-name">Tu Hobbit</span>
+    </div>
+    <div class="cc-section">
+      <label>📛 Nombre de tu Hobbit</label>
+      <input type="text" id="char-name" placeholder="Ej: Frodo, Bilbo, Pippin..." maxlength="20" oninput="GameUI.updatePreview()">
+    </div>
+    <div class="cc-section">
+      <label>🧍 Sexo</label>
+      <div class="cc-options">
+        <div class="cc-option selected" data-group="sex" data-value="male" onclick="GameUI.selectOption(this)">👦 Masculino</div>
+        <div class="cc-option" data-group="sex" data-value="female" onclick="GameUI.selectOption(this)">👧 Femenino</div>
+      </div>
+    </div>
+    <div class="cc-section">
+      <label>💇 Peinado</label>
+      <div class="cc-options">
+        <div class="cc-option selected" data-group="hair" data-value="curly" onclick="GameUI.selectOption(this)">〰️ Rizado</div>
+        <div class="cc-option" data-group="hair" data-value="straight" onclick="GameUI.selectOption(this)">➖ Liso</div>
+        <div class="cc-option" data-group="hair" data-value="long" onclick="GameUI.selectOption(this)">🌊 Largo</div>
+        <div class="cc-option" data-group="hair" data-value="short" onclick="GameUI.selectOption(this)">✂️ Corto</div>
+      </div>
+    </div>
+    <div class="cc-section">
+      <label>👀 Ojos</label>
+      <div class="cc-options">
+        <div class="cc-option selected" data-group="eyes" data-value="brown" onclick="GameUI.selectOption(this)">🟤 Marrones</div>
+        <div class="cc-option" data-group="eyes" data-value="blue" onclick="GameUI.selectOption(this)">🔵 Azules</div>
+        <div class="cc-option" data-group="eyes" data-value="green" onclick="GameUI.selectOption(this)">🟢 Verdes</div>
+        <div class="cc-option" data-group="eyes" data-value="gray" onclick="GameUI.selectOption(this)">⚪ Grises</div>
+      </div>
+    </div>
+    <div class="cc-section">
+      <label>👕 Ropa superior</label>
+      <div class="cc-options">
+        <div class="cc-option selected" data-group="top" data-value="vest" onclick="GameUI.selectOption(this)">🟤 Chaleco</div>
+        <div class="cc-option" data-group="top" data-value="shirt" onclick="GameUI.selectOption(this)">🔴 Camisa</div>
+        <div class="cc-option" data-group="top" data-value="tunic" onclick="GameUI.selectOption(this)">🟢 Túnica</div>
+        <div class="cc-option" data-group="top" data-value="cloak" onclick="GameUI.selectOption(this)">🟣 Capa</div>
+      </div>
+    </div>
+    <div class="cc-section">
+      <label>👖 Ropa inferior</label>
+      <div class="cc-options">
+        <div class="cc-option selected" data-group="bottom" data-value="trousers" onclick="GameUI.selectOption(this)">🟤 Pantalones</div>
+        <div class="cc-option" data-group="bottom" data-value="skirt" onclick="GameUI.selectOption(this)">🟡 Falda</div>
+        <div class="cc-option" data-group="bottom" data-value="shorts" onclick="GameUI.selectOption(this)">🟢 Shorts</div>
+      </div>
+    </div>
+    <div class="cc-section">
+      <label>🦶 Calzado (recuerda: ¡los Hobbits van descalzos!)</label>
+      <div class="cc-options">
+        <div class="cc-option selected" data-group="shoes" data-value="barefoot" onclick="GameUI.selectOption(this)">🦶 Descalzo</div>
+        <div class="cc-option" data-group="shoes" data-value="sandals" onclick="GameUI.selectOption(this)">👡 Sandalias</div>
+        <div class="cc-option" data-group="shoes" data-value="boots" onclick="GameUI.selectOption(this)">👢 Botas</div>
+      </div>
+    </div>
+    <button id="btn-start-journey" onclick="GameUI.startJourney()">🌄 ¡Comenzar el Viaje!</button>
+  </div>
+
+  <!-- CARGAR PARTIDA -->
+  <div id="load-screen">
+    <h2>📜 Continuar Viaje</h2>
+    <p style="color:#c4a35a; font-size:13px; margin-bottom:15px;">Introduce tu código de personaje</p>
+    <input type="text" id="load-code" placeholder="FRODO-0000" maxlength="12">
+    <br>
+    <button onclick="GameUI.loadGame()">⚔️ Continuar</button>
+    <button onclick="GameUI.hideLoadScreen()">✖ Volver</button>
+    <p id="load-error" style="color:#f44336; font-size:12px; margin-top:10px;"></p>
+  </div>
+
+  <!-- HUD (durante juego) -->
+  <div id="hud">
+    <div class="hud-name" id="hud-name">—</div>
+    <div class="hud-location" id="hud-location">La Comarca</div>
+  </div>
+
+  <!-- BARRA DE PROGRESO SA -->
+  <div id="progress-bar-container">
+    <div class="progress-label" id="progress-label">Progreso — SA 1</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- DIÁLOGO GANDALF -->
+  <div id="dialog-overlay">
+    <div id="dialog-speaker">🧙 Gandalf dice:</div>
+    <div id="dialog-text"></div>
+    <div id="dialog-continue">[ Pulsa ESPACIO para continuar ]</div>
+  </div>
+
+  <!-- PANEL DE PUZZLE -->
+  <div id="puzzle-overlay">
+    <div id="puzzle-title">📜 Pergamino Mágico</div>
+    <div id="puzzle-question"></div>
+    <div id="puzzle-options"></div>
+    <div id="puzzle-feedback"></div>
+    <button id="puzzle-close" onclick="GameUI.closePuzzle()">Continuar →</button>
+  </div>
+
+  <!-- NOTIFICACIÓN -->
+  <div id="notification" id="notification"></div>
+</div>
+
+<script src="data/map_taberna_b64.js"></script>
+<script src="js/systems/SaveSystem.js"></script>
+<script src="js/systems/DialogSystem.js"></script>
+<script src="js/systems/PuzzleSystem.js"></script>
+<script src="js/GameUI.js"></script>
+<script src="js/scenes/CharacterSprite.js"></script>
+<script src="js/scenes/WorldMap.js"></script>
+<script src="data/sa1_comarca.js"></script>
+<script src="js/scenes/dungeons/LaComarca.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,18 +1,19 @@
 /**
  * LaComarca.js  — SA1
- * Escena de La Comarca usando la imagen real del mapa.
- * Movimiento en cuadrícula: arriba/abajo/izquierda/derecha (sin diagonal).
+ * Escena de La Comarca usando la imagen real del mapa de la Taberna.
  *
- * World: 800×800px  |  Tile: 32px  |  Grid: 25×25
- * Viewport (cámara): 800×600px  →  scroll vertical cuando el jugador
- * se acerca al borde superior/inferior.
+ * World: 2052×2052 px  |  Tile: 54 px  |  Grid: 38×38
+ * Viewport: 800×600 con zoom 1.5  →  se ven ~9.8×7.4 tiles en pantalla
+ *
+ * El personaje es un Phaser Container con dos capas:
+ *   – Cuerpo  (textura direccional: front/back/left/right)
+ *   – Pies    (alterna feet_a / feet_b durante el movimiento)
  */
 class LaComarcaScene extends Phaser.Scene {
   constructor() { super({ key: 'LaComarca' }); }
 
   // ─── PRELOAD ────────────────────────────────────────────────────────────────
   preload() {
-    // Phaser 3.60 rechaza data: URIs → convertimos a blob: URL que sí acepta
     if (typeof MAP_TABERNA_B64 !== 'undefined') {
       try {
         const raw   = MAP_TABERNA_B64;
@@ -22,10 +23,10 @@ class LaComarcaScene extends Phaser.Scene {
         const bin   = atob(b64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const blob    = new Blob([bytes], { type: mime });
+        const blob       = new Blob([bytes], { type: mime });
         this._mapBlobUrl = URL.createObjectURL(blob);
         this.load.image('map_taberna', this._mapBlobUrl);
-        console.log('🗺️ map_taberna: blob URL creada, cargando con Phaser loader…');
+        console.log('🗺️ map_taberna: blob URL creada, cargando…');
       } catch (e) {
         console.warn('⚠️ preload map_taberna falló:', e.message);
       }
@@ -34,12 +35,11 @@ class LaComarcaScene extends Phaser.Scene {
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
   create() {
-    console.log('🌿 LaComarca create() — jugador:', window.Game.player ? window.Game.player.name : 'NULL');
+    console.log('🌿 LaComarca create() — jugador:', window.Game.player?.name ?? 'NULL');
     try {
       this._createScene();
     } catch (err) {
       console.error('❌ Error en LaComarca.create():', err);
-      // Mostrar mensaje de error sobre el canvas para diagnóstico
       this.add.text(400, 300,
         '⚠️ Error al cargar La Comarca\nRevisa la consola (F12) para detalles.',
         { fontSize: '14px', fill: '#ff4444', align: 'center', wordWrap: { width: 700 } }
@@ -48,7 +48,6 @@ class LaComarcaScene extends Phaser.Scene {
   }
 
   _createScene() {
-    // Asegurar que WorldMap no esté renderizando en segundo plano
     if (this.scene.isActive('WorldMap')) this.scene.stop('WorldMap');
 
     Game.currentSA = 'sa1';
@@ -56,47 +55,56 @@ class LaComarcaScene extends Phaser.Scene {
     GameUI.updateHUD();
 
     // ── Constantes de cuadrícula ──────────────────────────────────────────────
-    this.TILE  = 32;          // píxeles por celda
-    this.COLS  = 25;
-    this.ROWS  = 25;
-    this.worldW = this.COLS * this.TILE;  // 800
-    this.worldH = this.ROWS * this.TILE;  // 800
+    this.TILE   = 54;        // px por celda (imagen 2048÷38 ≈ 53.9 → 54)
+    this.COLS   = 38;
+    this.ROWS   = 38;
+    this.worldW = this.COLS * this.TILE;  // 2052
+    this.worldH = this.ROWS * this.TILE;  // 2052
 
-    // ── Mapa de colisiones (25×25) ────────────────────────────────────────────
-    // 0 = transitable  |  1 = bloqueado
-    // Basado en la imagen: borde oscuro bloqueado, hierba y interior transitable,
-    // paredes del edificio y mobiliario bloqueados.
+    // ── Mapa de colisiones (38×38) ────────────────────────────────────────────
+    // Generado escalando el mapa 25×25 original. 0=transitable | 1=bloqueado
     this.collisionMap = [
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 0
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 1
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 2
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 3
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 4  (piedra bienvenida col 3)
-      [1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1], // 5  (pared norte edificio)
-      [1,1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,1,1], // 6  (sala norte)
-      [1,1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,1,1], // 7  (tablón col 7)
-      [1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,1], // 8  (barra col 11-13)
-      [1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1], // 9
-      [1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1], // 10
-      [1,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0,0,0,0,1,0,0,1,1], // 11 (mesas)
-      [1,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0,0,0,0,1,0,0,1,1], // 12
-      [1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1], // 13 (mesa grande col 11)
-      [1,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,0,0,1,1], // 14
-      [1,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,0,0,1,1], // 15
-      [1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1], // 16
-      [1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1], // 17
-      [1,1,0,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,1,1], // 18 (pared sur, puerta cols 11-12)
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 19
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 20
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 21
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1], // 22
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 23
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 24
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 0
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 1
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 2
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 3
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 4
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 5
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 6
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 7
+      [1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1], // 8  pared norte
+      [1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1], // 9
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 10
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 11
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 12
+      [1,1,1,1,0,0,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,1,1], // 13
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 14
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 15
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 16
+      [1,1,1,1,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 17
+      [1,1,1,1,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 18
+      [1,1,1,1,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 19
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 20
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 21
+      [1,1,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 22
+      [1,1,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 23
+      [1,1,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 24
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 25
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 26
+      [1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,1,1], // 27
+      [1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1], // 28 pared sur (puerta cols 17-19)
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 29
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 30
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 31
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 32
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 33
+      [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1], // 34
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 35
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 36
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 37
     ];
 
-    // ── Fondo: imagen del escenario (con fallback de color) ──────────────────
-    // La textura 'map_taberna' fue cargada en preload() via blob URL
-    // Liberar blob URL ahora que Phaser ya la procesó
+    // ── Fondo: imagen del mapa ─────────────────────────────────────────────────
     if (this._mapBlobUrl) {
       URL.revokeObjectURL(this._mapBlobUrl);
       this._mapBlobUrl = null;
@@ -107,14 +115,13 @@ class LaComarcaScene extends Phaser.Scene {
         .setDepth(0);
       console.log('✅ Mapa cargado correctamente');
     } else {
-      // Fondo verde degradado como fallback
       const bg = this.add.graphics().setDepth(0);
       bg.fillStyle(0x2d5a27);
       bg.fillRect(0, 0, this.worldW, this.worldH);
       bg.fillStyle(0x3a7a32, 0.5);
-      for (let x = 0; x < this.worldW; x += 64) {
-        for (let y = 0; y < this.worldH; y += 64) {
-          if ((x + y) % 128 === 0) bg.fillRect(x, y, 32, 32);
+      for (let x = 0; x < this.worldW; x += 108) {
+        for (let y = 0; y < this.worldH; y += 108) {
+          if ((x + y) % 216 === 0) bg.fillRect(x, y, 54, 54);
         }
       }
       console.warn('⚠️ Usando fondo de color (imagen no disponible)');
@@ -122,36 +129,45 @@ class LaComarcaScene extends Phaser.Scene {
 
     // ── Cámara ────────────────────────────────────────────────────────────────
     this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
+    this.cameras.main.setZoom(1.5);
 
     // ── Jugador ───────────────────────────────────────────────────────────────
-    createPlayerTexture(this, window.Game.player.appearance);
-    // Posición de inicio: exterior sur, frente a la entrada
-    this.gridX = 12;
-    this.gridY = 21;
-    this.player = this.add.image(
-      this._tileToWorld(this.gridX),
-      this._tileToWorld(this.gridY),
-      'player_sprite'
-    ).setScale(2.5).setDepth(10);
+    const charId    = window.Game.player.appearance?.charId || 'c01';
+    this._charId    = charId;
+    this._facing    = 'front';
+    this._feetFrame = 'a';
+    this._feetTimer = 0;
 
-    this.playerLabel = this.add.text(
-      this._tileToWorld(this.gridX),
-      this._tileToWorld(this.gridY) - 22,
-      window.Game.player.name,
-      { fontSize: '9px', fill: '#ffd700', stroke: '#000', strokeThickness: 2 }
-    ).setOrigin(0.5).setDepth(11);
+    generateCharSprites(this, charId);
+
+    this.gridX = 18;
+    this.gridY = 31;   // exterior sur, frente a la entrada
+    const startX = this._tileToWorld(this.gridX);
+    const startY = this._tileToWorld(this.gridY);
+
+    // Capas del personaje: pies abajo, cuerpo encima
+    this._bodyImg = this.add.image(0, -5,  charId + '_front').setScale(2.5).setDepth(1);
+    this._feetImg = this.add.image(0,  14, charId + '_feet_a').setScale(2.5).setDepth(0);
+
+    this.playerLabel = this.add.text(0, -38, window.Game.player.name, {
+      fontSize: '9px', fill: '#ffd700', stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(2);
+
+    this.player = this.add.container(startX, startY,
+      [this._feetImg, this._bodyImg, this.playerLabel]
+    ).setDepth(10);
 
     this.cameras.main.startFollow(this.player, true, 1, 1);
 
     // ── Movimiento en cuadrícula ──────────────────────────────────────────────
-    this.isMoving   = false;  // bloqueado durante el tween
-    this.moveDelay  = 0;      // para repetición al mantener tecla
-    this.MOVE_FIRST = 220;    // ms antes de repetir
-    this.MOVE_REP   = 130;    // ms entre repeticiones
-    this.moveDuration = 110;  // ms del tween de movimiento
+    this.isMoving     = false;
+    this.moveDelay    = 0;
+    this.MOVE_FIRST   = 220;
+    this.MOVE_REP     = 130;
+    this.moveDuration = 110;
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd    = this.input.keyboard.addKeys({
+    this.cursors  = this.input.keyboard.createCursorKeys();
+    this.wasd     = this.input.keyboard.addKeys({
       up:    Phaser.Input.Keyboard.KeyCodes.W,
       down:  Phaser.Input.Keyboard.KeyCodes.S,
       left:  Phaser.Input.Keyboard.KeyCodes.A,
@@ -160,110 +176,84 @@ class LaComarcaScene extends Phaser.Scene {
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
 
-    // ── Indicador de interacción (icono flotante sobre objeto) ────────────────
+    // ── Indicador de interacción ──────────────────────────────────────────────
     this.interactIcon = this.add.text(0, 0, '[ ESPACIO ]', {
       fontSize: '9px', fill: '#ffd700',
       backgroundColor: '#1a0a00',
       padding: { x: 4, y: 2 }
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    // ── Zona de debug (celdas) — comentar en producción ───────────────────────
-    // this._drawGrid();
-
     // ── Objetos interactivos ──────────────────────────────────────────────────
-    // Cada objeto: { col, row, key, label, cb }
     this.interactables = [
-      {
-        col: 3, row: 4,
-        key: 'bienvenida',
-        label: '🪨 Piedra de\nBienvenida',
-        cb: () => this._onBienvenida()
-      },
-      {
-        col: 7, row: 7,
-        key: 'tablon',
-        label: '📜 Tablón de\nla Taberna',
-        cb: () => this._onTablon()
-      },
-      {
-        col: 11, row: 8,
-        key: 'barra',
-        label: '🍺 La Barra\ndel Tabernero',
-        cb: () => this._onBarra()
-      },
-      {
-        col: 11, row: 13,
-        key: 'mesa',
-        label: '📚 La Gran\nMesa',
-        cb: () => this._onMesa()
-      },
-      {
-        col: 12, row: 18,
-        key: 'puerta_salida',
-        label: '🚪 Salida\nhacia Bree',
-        cb: () => this._onPuertaSalida()
-      },
+      { col:  4, row:  6, key: 'bienvenida',   label: '🪨 Piedra de\nBienvenida',  cb: () => this._onBienvenida()   },
+      { col: 10, row: 10, key: 'tablon',        label: '📌 Tablón de\nla Taberna',  cb: () => this._onTablon()        },
+      { col: 16, row: 12, key: 'barra',         label: '🍺 La Barra\ndel Tabernero',cb: () => this._onBarra()         },
+      { col: 16, row: 19, key: 'mesa',          label: '📋 La Gran\nMesa',          cb: () => this._onMesa()          },
+      { col: 18, row: 27, key: 'puerta_salida', label: '🚪 Salida\nhacia Bree',     cb: () => this._onPuertaSalida()  },
     ];
 
-    // Dibujar etiquetas de objetos en el mapa
     this.interactables.forEach(obj => {
       this.add.text(
         this._tileToWorld(obj.col),
-        this._tileToWorld(obj.row) - 20,
+        this._tileToWorld(obj.row) - 32,
         obj.label,
-        { fontSize: '8px', fill: '#ffd700', stroke: '#000', strokeThickness: 2, align: 'center' }
+        { fontSize: '7px', fill: '#ffd700', stroke: '#000', strokeThickness: 2, align: 'center' }
       ).setOrigin(0.5).setDepth(9);
     });
 
-    // ── HUD controles ─────────────────────────────────────────────────────────
-    // Texto fijo en la cámara (no en el mundo)
+    // ── HUD controles (fijo en cámara) ────────────────────────────────────────
     this.controlsText = this.add.text(400, 590, '⬆⬇⬅➡  Mover  |  ESPACIO  Interactuar', {
       fontSize: '10px', fill: '#c4a35a', stroke: '#000', strokeThickness: 1
     }).setOrigin(0.5).setScrollFactor(0).setDepth(30);
 
-    // ── Introducción ──────────────────────────────────────────────────────────
+    // ── Introducción de Gandalf ────────────────────────────────────────────────
     this._gandalfDone = false;
     this.time.delayedCall(400, () => {
       DialogSystem.show([{
         speaker: '🧙 Gandalf',
-        text: `Bienvenido, ${window.Game.player.name}. Muévete con las flechas o WASD. Acércate a los objetos brillantes y pulsa ESPACIO para interactuar. ¡Empieza explorando La Comarca!`
+        text: `Bienvenido, ${window.Game.player.name}. Muévete con las flechas o WASD. Acércate a los objetos y pulsa ESPACIO para interactuar. ¡Empieza explorando La Comarca!`
       }]);
     });
   }
 
-  // ─── CONVERSIÓN tile→pýxel (centro de la celda) ────────────────────────────
+  // ── tile → píxel (centro de celda) ────────────────────────────────────────
   _tileToWorld(t) { return t * this.TILE + this.TILE / 2; }
 
-  // ─── ¿Es transitable? ───────────────────────────────────────────────────────
+  // ── ¿Es transitable la celda? ─────────────────────────────────────────────
   _walkable(col, row) {
     if (col < 0 || col >= this.COLS || row < 0 || row >= this.ROWS) return false;
     return this.collisionMap[row][col] === 0;
   }
 
-  // ─── MOVER AL JUGADOR (tween) ────────────────────────────────────────────────
+  // ── MOVER AL JUGADOR ──────────────────────────────────────────────────────
   _movePlayer(dcol, drow) {
     if (this.isMoving) return;
+
     const nc = this.gridX + dcol;
     const nr = this.gridY + drow;
+
+    // Actualizar sprite de dirección (aunque no se pueda mover)
+    if      (dcol < 0) this._facing = 'left';
+    else if (dcol > 0) this._facing = 'right';
+    else if (drow < 0) this._facing = 'back';
+    else               this._facing = 'front';
+    this._bodyImg.setTexture(this._charId + '_' + this._facing);
+
     if (!this._walkable(nc, nr)) {
-      // Pequeño "golpe" visual contra la pared
       this.tweens.add({
         targets: this.player,
-        x: this.player.x + dcol * 6,
-        y: this.player.y + drow * 6,
+        x: this.player.x + dcol * 8,
+        y: this.player.y + drow * 8,
         duration: 60, yoyo: true, ease: 'Power1'
       });
       return;
     }
+
     this.isMoving = true;
     this.gridX = nc;
     this.gridY = nr;
     const tx = this._tileToWorld(nc);
     const ty = this._tileToWorld(nr);
-
-    // Voltear sprite según dirección horizontal
-    if (dcol < 0) this.player.setFlipX(true);
-    else if (dcol > 0) this.player.setFlipX(false);
 
     this.tweens.add({
       targets: this.player,
@@ -272,27 +262,20 @@ class LaComarcaScene extends Phaser.Scene {
       ease: 'Linear',
       onComplete: () => { this.isMoving = false; }
     });
-    this.tweens.add({
-      targets: this.playerLabel,
-      x: tx, y: ty - 22,
-      duration: this.moveDuration,
-      ease: 'Linear'
-    });
 
-    // Comprobar si hay objeto interactivo cercano
     this._checkNearby();
   }
 
-  // ─── DETECTAR OBJETO CERCANO ─────────────────────────────────────────────────
+  // ── DETECTAR OBJETO CERCANO ───────────────────────────────────────────────
   _checkNearby() {
     const near = this.interactables.find(obj =>
       Math.abs(obj.col - this.gridX) <= 1 && Math.abs(obj.row - this.gridY) <= 1 &&
-      !(Math.abs(obj.col - this.gridX) === 1 && Math.abs(obj.row - this.gridY) === 1) // no diagonal
+      !(Math.abs(obj.col - this.gridX) === 1 && Math.abs(obj.row - this.gridY) === 1)
     );
     if (near) {
       this.interactIcon.setPosition(
         this._tileToWorld(near.col),
-        this._tileToWorld(near.row) - 30
+        this._tileToWorld(near.row) - 42
       ).setAlpha(1);
       this._nearObject = near;
     } else {
@@ -301,24 +284,32 @@ class LaComarcaScene extends Phaser.Scene {
     }
   }
 
-  // ─── UPDATE ──────────────────────────────────────────────────────────────────
+  // ── UPDATE ────────────────────────────────────────────────────────────────
   update(time, delta) {
-    // Bloquear si hay diálogo o puzzle abierto
     if (DialogSystem.isOpen) return;
     if (document.getElementById('puzzle-overlay').classList.contains('active')) return;
+
+    // Animación de pies
+    if (this.isMoving) {
+      this._feetTimer += delta;
+      if (this._feetTimer > 120) {
+        this._feetTimer = 0;
+        this._feetFrame = this._feetFrame === 'a' ? 'b' : 'a';
+        this._feetImg.setTexture(this._charId + '_feet_' + this._feetFrame);
+      }
+    } else {
+      this._feetImg.setTexture(this._charId + '_feet_a');
+      this._feetTimer = 0;
+    }
 
     // ESPACIO / ENTER → interactuar
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
         Phaser.Input.Keyboard.JustDown(this.enterKey)) {
-      if (this._nearObject) {
-        this._nearObject.cb();
-        return;
-      }
+      if (this._nearObject) { this._nearObject.cb(); return; }
     }
 
     if (this.isMoving) return;
 
-    // Leer dirección (solo 4 ejes — no diagonal)
     const left  = this.cursors.left.isDown  || this.wasd.left.isDown;
     const right = this.cursors.right.isDown || this.wasd.right.isDown;
     const up    = this.cursors.up.isDown    || this.wasd.up.isDown;
@@ -331,14 +322,8 @@ class LaComarcaScene extends Phaser.Scene {
     else if (down)  drow =  1;
 
     const moving = dcol !== 0 || drow !== 0;
+    if (!moving) { this.moveDelay = 0; return; }
 
-    if (!moving) {
-      this.moveDelay = 0;
-      return;
-    }
-
-    // Primera pulsación → mover inmediatamente
-    // Tecla mantenida → esperar MOVE_FIRST ms, luego repetir cada MOVE_REP ms
     const justPressed =
       (dcol === -1 && Phaser.Input.Keyboard.JustDown(this.cursors.left))  ||
       (dcol ===  1 && Phaser.Input.Keyboard.JustDown(this.cursors.right)) ||
@@ -362,9 +347,9 @@ class LaComarcaScene extends Phaser.Scene {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
   // CALLBACKS DE OBJETOS INTERACTIVOS
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
 
   _onBienvenida() {
     DialogSystem.show(
@@ -427,7 +412,7 @@ class LaComarcaScene extends Phaser.Scene {
     }
   }
 
-  // ─── OVERLAY DE SALA (teoría + puzzles) ──────────────────────────────────────
+  // ── OVERLAY DE SALA (teoría + puzzles) ─────────────────────────────────────
   _showRoomOverlay(room, roomKey) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -437,7 +422,6 @@ class LaComarcaScene extends Phaser.Scene {
       overflow-y:auto;padding:20px 25px 30px;box-sizing:border-box;
     `;
 
-    // Título
     const title = document.createElement('h2');
     title.style.cssText = 'color:#ffd700;font-family:Georgia;margin:0 0 4px;font-size:19px;text-align:center;';
     title.textContent = room.nombre;
@@ -448,7 +432,6 @@ class LaComarcaScene extends Phaser.Scene {
     sub.textContent = room.descripcion;
     overlay.appendChild(sub);
 
-    // Pergamino teórico
     if (room.pergamino_teoria) {
       const box = document.createElement('div');
       box.style.cssText = `
@@ -460,15 +443,14 @@ class LaComarcaScene extends Phaser.Scene {
       overlay.appendChild(box);
     }
 
-    // Enigmas
     const enigmasTitle = document.createElement('p');
     enigmasTitle.style.cssText = 'color:#ffd700;font-family:Georgia;font-size:13px;margin:0 0 8px;width:100%;';
-    enigmasTitle.textContent = `⚔️ Enigmas de ${room.nombre}:`;
+    enigmasTitle.textContent = `❖ Enigmas de ${room.nombre}:`;
     overlay.appendChild(enigmasTitle);
 
     room.puzzles.forEach((puzzle, i) => {
       const done = window.Game.player && SaveSystem.isPuzzleDone(window.Game.player, puzzle.id);
-      const btn = document.createElement('button');
+      const btn  = document.createElement('button');
       btn.style.cssText = `
         display:block;width:100%;padding:11px 14px;margin:5px 0;
         background:${done ? '#0a1f0a' : '#1a0e00'};
@@ -477,24 +459,23 @@ class LaComarcaScene extends Phaser.Scene {
         font-family:Georgia;font-size:12px;text-align:left;cursor:pointer;
         border-radius:4px;box-sizing:border-box;transition:border-color .2s;
       `;
-      btn.textContent = `${done ? '✅' : '🔒'} Enigma ${i + 1}: ${puzzle.title}`;
+      btn.textContent = `${done ? '✅' : '📜'} Enigma ${i + 1}: ${puzzle.title}`;
       btn.onmouseenter = () => { if (!done) btn.style.borderColor = '#ffd700'; };
       btn.onmouseleave = () => { if (!done) btn.style.borderColor = '#8b6914'; };
       btn.onclick = () => {
         if (done) { GameUI.notify('✅ Ya resolviste este enigma.'); return; }
         PuzzleSystem.open(puzzle, () => {
-          btn.style.background   = '#0a1f0a';
-          btn.style.borderColor  = '#4caf50';
-          btn.style.color        = '#4caf50';
-          btn.textContent        = `✅ Enigma ${i + 1}: ${puzzle.title}`;
-          GameUI.notify('🎉 ¡Enigma superado!');
+          btn.style.background  = '#0a1f0a';
+          btn.style.borderColor = '#4caf50';
+          btn.style.color       = '#4caf50';
+          btn.textContent       = `✅ Enigma ${i + 1}: ${puzzle.title}`;
+          GameUI.notify('💡 ¡Enigma superado!');
           GameUI.updateProgressBar();
         });
       };
       overlay.appendChild(btn);
     });
 
-    // Botón volver
     const backBtn = document.createElement('button');
     backBtn.style.cssText = `
       margin-top:18px;padding:10px 28px;background:#3d2200;
@@ -508,13 +489,12 @@ class LaComarcaScene extends Phaser.Scene {
     document.getElementById('game-container').appendChild(overlay);
   }
 
-  // ─── (Opcional) rejilla de debug ─────────────────────────────────────────────
+  // ── Rejilla de debug (descomentar para ajustar colisiones) ─────────────────
   _drawGrid() {
     const g = this.add.graphics().setDepth(50).setAlpha(0.25);
     g.lineStyle(1, 0xffffff);
     for (let c = 0; c <= this.COLS; c++) g.lineBetween(c * this.TILE, 0, c * this.TILE, this.worldH);
     for (let r = 0; r <= this.ROWS; r++) g.lineBetween(0, r * this.TILE, this.worldW, r * this.TILE);
-    // Colorear bloqueadas
     this.collisionMap.forEach((row, r) =>
       row.forEach((v, c) => {
         if (v === 1) {

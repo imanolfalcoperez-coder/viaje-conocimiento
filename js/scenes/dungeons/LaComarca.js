@@ -12,8 +12,24 @@ class LaComarcaScene extends Phaser.Scene {
 
   // ─── PRELOAD ────────────────────────────────────────────────────────────────
   preload() {
-    // MAP_TABERNA_B64 se carga en _createScene() via Image API nativa
-    // (Phaser 3.60 no soporta data URIs en su loader — causa hang)
+    // Phaser 3.60 rechaza data: URIs → convertimos a blob: URL que sí acepta
+    if (typeof MAP_TABERNA_B64 !== 'undefined') {
+      try {
+        const raw   = MAP_TABERNA_B64;
+        const semi  = raw.indexOf(';');
+        const mime  = semi > 0 ? raw.slice(5, semi) : 'image/jpeg';
+        const b64   = raw.slice(raw.indexOf(',') + 1);
+        const bin   = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob    = new Blob([bytes], { type: mime });
+        this._mapBlobUrl = URL.createObjectURL(blob);
+        this.load.image('map_taberna', this._mapBlobUrl);
+        console.log('🗺️ map_taberna: blob URL creada, cargando con Phaser loader…');
+      } catch (e) {
+        console.warn('⚠️ preload map_taberna falló:', e.message);
+      }
+    }
   }
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
@@ -79,16 +95,11 @@ class LaComarcaScene extends Phaser.Scene {
     ];
 
     // ── Fondo: imagen del escenario (con fallback de color) ──────────────────
-    // Cargar textura desde data URI usando Image API nativa (no el loader de Phaser)
-    if (!this.textures.exists('map_taberna') && typeof MAP_TABERNA_B64 !== 'undefined') {
-      try {
-        const img = new window.Image();
-        img.src = MAP_TABERNA_B64;
-        if (img.complete && img.naturalWidth > 0) {
-          this.textures.addImage('map_taberna', img);
-          console.log('✅ Mapa cargado directamente');
-        }
-      } catch(e) { console.warn('⚠️ Error cargando mapa:', e.message); }
+    // La textura 'map_taberna' fue cargada en preload() via blob URL
+    // Liberar blob URL ahora que Phaser ya la procesó
+    if (this._mapBlobUrl) {
+      URL.revokeObjectURL(this._mapBlobUrl);
+      this._mapBlobUrl = null;
     }
     if (this.textures.exists('map_taberna')) {
       this.add.image(this.worldW / 2, this.worldH / 2, 'map_taberna')
@@ -220,7 +231,7 @@ class LaComarcaScene extends Phaser.Scene {
     });
   }
 
-  // ─── CONVERSIÓN tile→píxel (centro de la celda) ────────────────────────────
+  // ─── CONVERSIÓN tile→pýxel (centro de la celda) ────────────────────────────
   _tileToWorld(t) { return t * this.TILE + this.TILE / 2; }
 
   // ─── ¿Es transitable? ───────────────────────────────────────────────────────

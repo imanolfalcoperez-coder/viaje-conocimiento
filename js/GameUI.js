@@ -3,61 +3,45 @@
  * Gestiona la interfaz de usuario, creación de personaje y transiciones
  */
 const GameUI = {
-  charOptions: {
-    sex: 'male',
-    hair: 'curly',
-    eyes: 'brown',
-    top: 'vest',
-    bottom: 'trousers',
-    shoes: 'barefoot'
+  // charId seleccionado en la pantalla de selección de personaje
+  _selectedCharId: 'c01',
+
+  // Inicializa los canvas de previsualización en la pantalla de selección
+  initCharSelection() {
+    if (typeof CHARACTER_PRESETS === 'undefined') return;
+    CHARACTER_PRESETS.forEach(preset => {
+      const canvas = document.getElementById('char-canvas-' + preset.id);
+      if (canvas) drawCharPreviewHTML(canvas, preset);
+    });
+    this.selectChar('c01');
   },
 
-  // EMOJIS de preview según opciones
-  getPreviewEmoji() {
-    const sex = this.charOptions.sex;
-    const hair = this.charOptions.hair;
-    if (sex === 'female') {
-      if (hair === 'long') return '👩';
-      if (hair === 'curly') return '👩‍🦱';
-      return '👧';
-    } else {
-      if (hair === 'curly') return '👨‍🦱';
-      if (hair === 'long') return '👨';
-      if (hair === 'short') return '👦';
-      return '🧑';
-    }
-  },
-
-  updatePreview() {
-    document.getElementById('preview-emoji').textContent = this.getPreviewEmoji();
-    const name = document.getElementById('char-name').value || 'Tu Hobbit';
-    document.getElementById('preview-name').textContent = name;
-  },
-
-  selectOption(el) {
-    const group = el.dataset.group;
-    const value = el.dataset.value;
-    // Deseleccionar otros del mismo grupo
-    document.querySelectorAll(`.cc-option[data-group="${group}"]`).forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-    this.charOptions[group] = value;
-    this.updatePreview();
+  selectChar(charId) {
+    this._selectedCharId = charId;
+    // Resaltar el seleccionado
+    document.querySelectorAll('.char-card').forEach(card => {
+      card.classList.toggle('selected', card.dataset.charId === charId);
+    });
   },
 
   // NUEVA PARTIDA
   newGame() {
     document.getElementById('main-menu').classList.remove('active');
     document.getElementById('character-creation').classList.add('active');
+    // Renderizar previsualizaciones (diferido para asegurar que el DOM está visible)
+    setTimeout(() => this.initCharSelection(), 50);
   },
 
   // INICIAR VIAJE con el personaje creado
   startJourney() {
     const name = document.getElementById('char-name').value.trim();
     if (!name) {
-      alert('¡Ponle nombre a tu Hobbit antes de partir!');
+      alert('ʡPonle nombre a tu Hobbit antes de partir!');
       return;
     }
-    const player = SaveSystem.createNewPlayer(name, { ...this.charOptions });
+    const preset   = typeof getCharPreset !== 'undefined' ? getCharPreset(this._selectedCharId) : { id: 'c01' };
+    const appearance = { charId: preset.id, emoji: preset.emoji || '🧑' };
+    const player = SaveSystem.createNewPlayer(name, appearance);
     window.Game.player = player;
     SaveSystem.save(player);
 
@@ -147,7 +131,7 @@ const GameUI = {
   getPlayerEmoji() {
     const p = window.Game.player;
     if (!p) return '🧑';
-    return p.appearance.sex === 'female' ? '👧' : '👦';
+    return p.appearance.emoji || p.appearance.charId || '🧑';
   },
 
   updateProgressBar() {

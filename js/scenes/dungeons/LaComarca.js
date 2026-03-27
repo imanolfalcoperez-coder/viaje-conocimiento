@@ -185,10 +185,10 @@ class LaComarcaScene extends Phaser.Scene {
 
     // ── Objetos interactivos ──────────────────────────────────────────────────
     this.interactables = [
-      { col:  4, row:  6, key: 'bienvenida',   label: '🪨 Piedra de\nBienvenida',  cb: () => this._onBienvenida()   },
-      { col: 10, row: 10, key: 'tablon',        label: '📌 Tablón de\nla Taberna',  cb: () => this._onTablon()        },
-      { col: 16, row: 12, key: 'barra',         label: '🍺 La Barra\ndel Tabernero',cb: () => this._onBarra()         },
-      { col: 16, row: 19, key: 'mesa',          label: '📋 La Gran\nMesa',          cb: () => this._onMesa()          },
+      { col:  5, row:  7, key: 'bienvenida',   label: '🪨 Piedra de\nBienvenida',  cb: () => this._onBienvenida()   },
+      { col: 10, row: 11, key: 'tablon',        label: '📌 Tablón de\nla Taberna',  cb: () => this._onTablon()        },
+      { col: 15, row: 13, key: 'barra',         label: '🍺 La Barra\ndel Tabernero',cb: () => this._onBarra()         },
+      { col: 14, row: 19, key: 'mesa',          label: '📋 La Gran\nMesa',          cb: () => this._onMesa()          },
       { col: 18, row: 27, key: 'puerta_salida', label: '🚪 Salida\nhacia Bree',     cb: () => this._onPuertaSalida()  },
     ];
 
@@ -395,7 +395,7 @@ class LaComarcaScene extends Phaser.Scene {
       DialogSystem.show(
         SA1_DATA.puerta_final.gandalf_bloqueada.map(t => ({ speaker: '🧙 Gandalf', text: t }))
       );
-      GameUI.notify(`🔒 Te faltan ${allPuzzles.length - done.length} enigma(s).`);
+      GameUI.notify('🔒 Te faltan ${allPuzzles.length - done.length} enigma(s).`);
     } else {
       player.completedDungeons.push('comarca');
       player.sa_progress.sa1 = 100;

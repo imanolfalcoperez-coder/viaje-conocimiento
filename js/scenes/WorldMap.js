@@ -146,7 +146,7 @@ class WorldMapScene extends Phaser.Scene {
       return order.find(id => !(player.completedDungeons || []).includes(id)) || 'comarca';
     })() : 'comarca';
     const sceneMap2 = { comarca:'LaComarca',bree:'Bree',vientos: 'Vientos',rivendell:'Rivendell',
-      moria:'Moria',lorien:'Lorien',rohan:'Rohan',tirith:'Tirith',destino:'Destino';
+      moria:'Moria',lorien:'Lorien',rohan:'Rohan',tirith:'Tirith',destino:'Destino' };
     const nextScene = sceneMap2[nextId] || 'LaComarca';
     const nextStop  = stops.find(s => s.id === nextId) || stops[0];
     this._addButton(W / 2 - 120, H - 55, `⚔️ Ir a ${nextStop.name}`, () => this.scene.start(nextScene));

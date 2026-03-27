@@ -51,7 +51,7 @@ class WorldMapScene extends Phaser.Scene {
       { id: 'lorien',   name: 'Lothlórien',           sa: 'sa6', x: 415, y: 290, emoji: '🌿' },
       { id: 'rohan',    name: 'Rohan',                sa: 'sa7', x: 450, y: 340, emoji: '🐴' },
       { id: 'tirith',   name: 'Minas Tirith',         sa: 'sa8', x: 515, y: 380, emoji: '🏰' },
-      { id: 'destino',  name: 'Monte del Destino',    sa: 'sa9', x: 590, y: 390, emoji: '🌋' }
+      { id: 'destino0',  name: 'Monte del Destino',    sa: 'sa9', x: 590, y: 390, emoji: '🌋' }
     ];
 
     const player = window.Game.player;
@@ -87,7 +87,7 @@ class WorldMapScene extends Phaser.Scene {
 
       // SA label
       this.add.text(stop.x, stop.y - (isCurrent ? 22 : 18),
-        isDone ? '✅' : isCurrent ? '▶' : `SA${i + 1}`, {
+        isDone ? 'ℕ' : isCurrent ? '▶' : `SA${i + 1}`, {
         fontSize: '10px', fill: isDone ? '#4caf50' : '#6b3e0f'
       }).setOrigin(0.5);
 
@@ -101,8 +101,19 @@ class WorldMapScene extends Phaser.Scene {
           }).setOrigin(0.5).setDepth(20).setName('tooltip');
         });
         zone.on('pointerdown', () => {
-          if (stop.id === 'comarca') this.scene.start('LaComarca');
-          // Próximamente: otras mazmorras
+          const sceneMap = {
+            comarca:   'LaComarca',
+            bree:      'Bree',
+            vientos:   'Vientos',
+            rivendell: 'Rivendell',
+            moria:     'Moria',
+            lorien:    'Lorien',
+            rohan:     'Rohan',
+            tirith:    'Tirith',
+            destino:   'Destino'
+          };
+          const sceneKey = sceneMap[stop.id];
+          if (sceneKey) this.scene.start(sceneKey);
           else GameUI.notify(`🔒 ${stop.name} — ¡Próximamente!`);
         });
       }
@@ -129,8 +140,16 @@ class WorldMapScene extends Phaser.Scene {
       fontSize: '11px', fill: '#ffd700', fontFamily: 'Georgia'
     }).setOrigin(0.5);
 
-    // Botones
-    this._addButton(W / 2 - 120, H - 55, '⚔️ Ir a La Comarca', () => this.scene.start('LaComarca'));
+    // Botón: ir a la mazmorra actual del jugador
+    const nextId = player ? (() => {
+      const order = ['comarca','bree','vientos','rivendell','moria','lorien','rohan','tirith','destino'];
+      return order.find(id => !(player.completedDungeons || []).includes(id)) || 'comarca';
+    })() : 'comarca';
+    const sceneMap2 = { comarca:'LaComarca',bree:'Bree',vientos: 'Vientos',rivendell:'Rivendell',
+      moria:'Moria',lorien:'Lorien',rohan:'Rohan',tirith:'Tirith',destino:'Destino';
+    const nextScene = sceneMap2[nextId] || 'LaComarca';
+    const nextStop  = stops.find(s => s.id === nextId) || stops[0];
+    this._addButton(W / 2 - 120, H - 55, `⚔️ Ir a ${nextStop.name}`, () => this.scene.start(nextScene));
     this._addButton(W / 2 + 120, H - 55, '💾 Guardar', () => {
       if (window.Game.player) { SaveSystem.save(window.Game.player); GameUI.notify('💾 Partida guardada.'); }
     });

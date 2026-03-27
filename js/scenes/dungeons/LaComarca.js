@@ -395,7 +395,7 @@ class LaComarcaScene extends Phaser.Scene {
       DialogSystem.show(
         SA1_DATA.puerta_final.gandalf_bloqueada.map(t => ({ speaker: '🧙 Gandalf', text: t }))
       );
-      GameUI.notify('🔒 Te faltan ${allPuzzles.length - done.length} enigma(s).`);
+      GameUI.notify(`🔒 Te faltan ${allPuzzles.length - done.length} enigma(s).`);
     } else {
       player.completedDungeons.push('comarca');
       player.sa_progress.sa1 = 100;

@@ -21,6 +21,7 @@
       width: 800px;
       height: 600px;
       overflow: hidden;
+      transform-origin: center center;
     }
     canvas {
       display: block;
@@ -503,5 +504,19 @@
 <script src="data/sa1_comarca.js"></script>
 <script src="js/scenes/dungeons/LaComarca.js"></script>
 <script src="js/main.js"></script>
+<script>
+  // Escalar el juego para llenar el viewport manteniendo proporción 4:3
+  (function () {
+    function scaleGame() {
+      var c = document.getElementById('game-container');
+      var scaleX = window.innerWidth  / 800;
+      var scaleY = window.innerHeight / 600;
+      var scale  = Math.min(scaleX, scaleY);
+      c.style.transform = 'scale(' + scale + ')';
+    }
+    scaleGame();
+    window.addEventListener('resize', scaleGame);
+  })();
+</script>
 </body>
 </html>
